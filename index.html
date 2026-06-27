@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#19a7ce">
-  <meta name="description" content="A kid-friendly chore planner for ages 2 through 18.">
+  <meta name="description" content="A kid-friendly chore board for ages 2 through 18.">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Chore Helper</title>
+  <title>Kid Chore Board</title>
   <style>
     :root {
       color-scheme: light;
@@ -608,7 +608,7 @@
   <main class="app">
     <section class="hero" aria-labelledby="app-title">
       <div class="badge">Ages 2-18</div>
-      <h1 id="app-title">Chore Helper</h1>
+      <h1 id="app-title">Kid Chore Board</h1>
       <p class="intro">Pick an age, choose chores from the full list, and track status for each kid.</p>
     </section>
 
@@ -751,8 +751,8 @@
     const demoButton = document.querySelector("#demo-button");
     const resetButton = document.querySelector("#reset-button");
     const clearProgressButton = document.querySelector("#clear-progress-button");
-    const storageKey = "chore-helper-progress";
-    const assignmentStorageKey = "chore-helper-assignments";
+    const storageKey = "kid-chore-board-progress";
+    const assignmentStorageKey = "kid-chore-board-assignments";
     let currentRangeKey = null;
     let currentSelectedAge = null;
     let progressState = loadProgress();
@@ -1007,7 +1007,7 @@
 
       const rangeKey = getRangeForAge(age);
       if (!rangeKey) {
-        setMessage("Chore Helper works best for ages 2 through 18.", "error");
+        setMessage("Kid Chore Board works best for ages 2 through 18.", "error");
         return;
       }
 

@@ -1,7 +1,7 @@
 {
-  "name": "Chore Helper",
-  "short_name": "Chores",
-  "description": "A kid-friendly chore planner for ages 2 through 18.",
+  "name": "Kid Chore Board",
+  "short_name": "Chore Board",
+  "description": "A kid-friendly chore board for ages 2 through 18.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

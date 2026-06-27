@@ -1,6 +1,6 @@
-# Chore Helper PWA
+# Kid Chore Board PWA
 
-Chore Helper is a simple mobile-first progressive web app that creates age-appropriate chore plans for children ages 2 through 18. It shows a complete Daily/Weekly/Monthly chore list for the selected age range, lets chores be assigned to one or more children, tracks each chore's status, and shows reward progress with a leaderboard.
+Kid Chore Board is a simple mobile-first progressive web app that creates age-appropriate chore plans for children ages 2 through 18. It shows a complete Daily/Weekly/Monthly chore list for the selected age range, lets chores be assigned to one or more children, tracks each chore's status, and shows reward progress with a leaderboard.
 
 ## How to Run Locally
 
