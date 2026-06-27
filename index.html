@@ -1,0 +1,1123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#19a7ce">
+  <meta name="description" content="A kid-friendly chore planner for ages 2 through 18.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Chore Helper</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff8e8;
+      --panel: #ffffff;
+      --ink: #233142;
+      --muted: #65758b;
+      --primary: #19a7ce;
+      --primary-dark: #107a98;
+      --accent: #ff8f5f;
+      --sun: #ffd166;
+      --mint: #8bdcbe;
+      --line: #e7edf3;
+      --danger: #bf3951;
+      --shadow: 0 18px 42px rgba(35, 49, 66, 0.14);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255, 209, 102, 0.55), transparent 28%),
+        linear-gradient(160deg, #fff8e8 0%, #e8fbff 52%, #f3fff8 100%);
+      color: var(--ink);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 18px;
+      padding: 22px 0 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      width: max-content;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--primary-dark);
+      font-size: 0.9rem;
+      font-weight: 800;
+      box-shadow: 0 8px 22px rgba(16, 122, 152, 0.1);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.55rem, 12vw, 5.2rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      margin: 0;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 1.08rem;
+      line-height: 1.55;
+    }
+
+    .planner {
+      display: grid;
+      gap: 18px;
+    }
+
+    .control-panel,
+    .result-card,
+    .empty-state {
+      border: 1px solid rgba(231, 237, 243, 0.86);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+    }
+
+    .control-panel {
+      display: grid;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .input-row {
+      display: grid;
+      gap: 12px;
+    }
+
+    .assignment-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+
+    label {
+      color: var(--ink);
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .age-entry {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    input {
+      width: 100%;
+      min-height: 56px;
+      border: 2px solid #d8e8ef;
+      border-radius: 8px;
+      padding: 0 16px;
+      background: #ffffff;
+      color: var(--ink);
+      font-size: 1.15rem;
+      font-weight: 800;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(25, 167, 206, 0.18);
+    }
+
+    .button-row,
+    .range-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .button-row {
+      grid-template-columns: 1fr;
+    }
+
+    .range-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    button {
+      min-height: 50px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--ink);
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:focus-visible {
+      outline: 4px solid rgba(25, 167, 206, 0.25);
+      outline-offset: 2px;
+    }
+
+    .primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 10px 20px rgba(25, 167, 206, 0.25);
+    }
+
+    .secondary {
+      background: var(--sun);
+    }
+
+    .ghost {
+      border: 1px solid #dbe7ef;
+      background: #ffffff;
+      color: var(--muted);
+    }
+
+    .range-button {
+      border: 1px solid #dbe7ef;
+      background: #f7fbfd;
+    }
+
+    .range-button.active {
+      border-color: var(--primary);
+      background: #dff7ff;
+      color: var(--primary-dark);
+      box-shadow: inset 0 0 0 2px rgba(25, 167, 206, 0.18);
+    }
+
+    .help-text,
+    .message {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .message {
+      min-height: 1.4em;
+      font-weight: 800;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .results {
+      display: grid;
+      gap: 14px;
+    }
+
+    .results.hidden,
+    .empty-state.hidden {
+      display: none;
+    }
+
+    .results-header,
+    .empty-state {
+      padding: 18px;
+    }
+
+    .results-header {
+      display: grid;
+      gap: 12px;
+    }
+
+    .results-header h2 {
+      margin: 0;
+      font-size: clamp(1.7rem, 8vw, 3rem);
+      line-height: 1.02;
+    }
+
+    .results-header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .reward-panel {
+      display: grid;
+      gap: 10px;
+      border: 1px solid #dbe7ef;
+      border-radius: 8px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .reward-topline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 900;
+    }
+
+    .points-total {
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: var(--mint);
+      color: #163d32;
+    }
+
+    .progress-track {
+      overflow: hidden;
+      height: 12px;
+      border-radius: 999px;
+      background: #e9f1f6;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      transition: width 220ms ease;
+    }
+
+    .reward-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .leaderboard {
+      display: grid;
+      gap: 8px;
+      border: 1px solid #dbe7ef;
+      border-radius: 8px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .leaderboard h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .leader-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-top: 1px solid #edf2f6;
+      padding-top: 8px;
+      font-weight: 900;
+    }
+
+    .status-dot {
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 5px 8px;
+      background: #eef2f6;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .status-dot.assigned {
+      background: #dff7ff;
+      color: var(--primary-dark);
+    }
+
+    .status-dot.complete {
+      background: #edf9ee;
+      color: #246239;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .child-board {
+      display: grid;
+      gap: 14px;
+      border: 1px solid rgba(231, 237, 243, 0.86);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 14px;
+    }
+
+    .child-board-title {
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+
+    .chore-card-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .chooser-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .assignment-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .assign-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #dbe7ef;
+      border-radius: 999px;
+      padding: 7px 9px;
+      background: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    .assign-toggle input {
+      width: 18px;
+      min-height: 18px;
+      accent-color: var(--primary);
+    }
+
+    .assigned-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .assigned-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 6px 8px;
+      background: #f7fbfd;
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    .result-card {
+      overflow: hidden;
+      animation: reveal 360ms ease both;
+    }
+
+    .result-card:nth-child(2) {
+      animation-delay: 80ms;
+    }
+
+    .result-card:nth-child(3) {
+      animation-delay: 160ms;
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      padding: 16px 16px 10px;
+      font-size: 1.18rem;
+    }
+
+    .icon {
+      display: inline-grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border-radius: 8px;
+      background: #e8fbff;
+      font-size: 1.2rem;
+    }
+
+    ul {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0 16px 18px;
+      list-style: none;
+    }
+
+    li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: flex-start;
+      gap: 10px;
+      min-height: 32px;
+      color: #314257;
+      font-size: 1.02rem;
+      line-height: 1.35;
+    }
+
+    li::before {
+      content: "";
+      flex: 0 0 auto;
+      width: 10px;
+      height: 10px;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(255, 143, 95, 0.16);
+    }
+
+    li.completed {
+      color: var(--muted);
+    }
+
+    li.completed .chore-text {
+      text-decoration: line-through;
+    }
+
+    .chore-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .chore-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .point-pill {
+      border-radius: 999px;
+      padding: 5px 8px;
+      background: #fff3ce;
+      color: #765400;
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .chore-action {
+      min-height: 34px;
+      padding: 0 10px;
+      background: #edf9ee;
+      color: #246239;
+      font-size: 0.88rem;
+    }
+
+    li.completed .chore-action {
+      background: #eef2f6;
+      color: var(--muted);
+    }
+
+    .assign-action {
+      background: #dff7ff;
+      color: var(--primary-dark);
+    }
+
+    .unassign-action {
+      background: #fff0e8;
+      color: #934326;
+    }
+
+    .empty-state {
+      display: grid;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .empty-state h2 {
+      margin: 0;
+      font-size: 1.45rem;
+    }
+
+    .empty-state p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (min-width: 680px) {
+      .app {
+        padding: 42px 28px 58px;
+      }
+
+      .hero {
+        padding-top: 34px;
+      }
+
+      .age-entry {
+        grid-template-columns: minmax(180px, 1fr) auto;
+        align-items: center;
+      }
+
+      .assignment-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .button-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .range-grid {
+        grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+      }
+
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .chore-card-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      .chooser-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+      }
+
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero" aria-labelledby="app-title">
+      <div class="badge">Ages 2-18</div>
+      <h1 id="app-title">Chore Helper</h1>
+      <p class="intro">Pick an age, choose chores from the full list, and track status for each kid.</p>
+    </section>
+
+    <section class="planner" aria-label="Chore planner">
+      <form class="control-panel" id="chore-form" novalidate>
+        <div class="input-row">
+          <label for="age-input">Child's age</label>
+          <div class="age-entry">
+            <input id="age-input" name="age" type="number" min="2" max="18" inputmode="numeric" placeholder="Enter age 2-18">
+            <button class="primary" type="submit">Show Chore List</button>
+          </div>
+          <p class="message" id="message" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="assignment-grid">
+          <div class="input-row">
+            <label for="child-names">Kids</label>
+            <input id="child-names" name="childNames" type="text" maxlength="80" placeholder="Ava, Mia, Sam">
+          </div>
+          <div class="input-row">
+            <label for="reward-goal">Reward goal</label>
+            <input id="reward-goal" name="rewardGoal" type="number" min="1" max="200" inputmode="numeric" placeholder="25 points">
+          </div>
+          <div class="input-row">
+            <label for="prize-input">Prize</label>
+            <input id="prize-input" name="prize" type="text" maxlength="32" placeholder="Ice cream">
+          </div>
+        </div>
+
+        <div>
+          <p class="help-text">Or assign chores from an age range:</p>
+          <div class="range-grid" id="range-grid" aria-label="Age range shortcuts">
+            <button class="range-button" type="button" data-range="2-3">Ages 2-3</button>
+            <button class="range-button" type="button" data-range="4-5">Ages 4-5</button>
+            <button class="range-button" type="button" data-range="6-8">Ages 6-8</button>
+            <button class="range-button" type="button" data-range="9-10">Ages 9-10</button>
+            <button class="range-button" type="button" data-range="11-12">Ages 11-12</button>
+            <button class="range-button" type="button" data-range="13-15">Ages 13-15</button>
+            <button class="range-button" type="button" data-range="16-18">Ages 16-18</button>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="secondary" type="button" id="demo-button">Try Age 7</button>
+          <button class="ghost" type="button" id="reset-button">Reset</button>
+          <button class="ghost" type="button" id="clear-progress-button">Clear Points</button>
+        </div>
+      </form>
+
+      <section class="empty-state" id="empty-state">
+        <h2>Ready when you are.</h2>
+        <p>Enter an age and kid names, then choose from the complete Daily, Weekly, and Monthly chore list.</p>
+      </section>
+
+      <section class="results hidden" id="results" aria-live="polite">
+        <div class="results-header">
+          <h2 id="results-title"></h2>
+          <p id="results-copy"></p>
+          <p id="assignment-summary"></p>
+          <div id="leaderboard"></div>
+        </div>
+        <div class="card-grid" id="card-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const chorePlans = {
+      "2-3": {
+        label: "Ages 2-3",
+        note: "Best as short helping jobs with an adult right there. Skip breakables, chemicals, hot items, cords, and heavy water.",
+        daily: ["Put toys in bins", "Put dirty clothes in hamper", "Help wipe small spills", "Bring napkins to the table", "Help feed pet with pre-measured food"],
+        weekly: ["Help sort socks", "Help dust low surfaces with a cloth", "Water plants with a small cup"],
+        monthly: ["Help carry light items", "Help sort recycling by type", "Help choose toys for a tidy bin"]
+      },
+      "4-5": {
+        label: "Ages 4-5",
+        note: "Preschoolers can finish simple routines, but tableware, pets, outdoor jobs, and cleaning still need adult setup.",
+        daily: ["Make bed roughly", "Clear own plate", "Put shoes and coat away", "Set table with safe items", "Pick up toys"],
+        weekly: ["Match socks", "Fold washcloths", "Wipe table", "Help load plastic dishes", "Pull small weeds with adult help"],
+        monthly: ["Help wash lower car panels", "Organize toy bins", "Help pack donation items"]
+      },
+      "6-8": {
+        label: "Ages 6-8",
+        note: "Keep chores concrete and visible. Kids this age usually do best with short checklists and tools sized for them.",
+        daily: ["Make bed", "Clear table", "Pack or unpack backpack", "Put laundry away", "Brush or feed pet with guidance"],
+        weekly: ["Sweep small areas", "Vacuum simple rooms", "Fold laundry", "Empty small trash cans", "Help prepare simple snacks"],
+        monthly: ["Clean under bed", "Sort closet or drawers", "Wipe reachable windows", "Wipe baseboards"]
+      },
+      "9-10": {
+        label: "Ages 9-10",
+        note: "Add independence, but keep knives, heat, chemicals, heavy trash, and appliances limited to trained tasks.",
+        daily: ["Reset bedroom", "Feed and water pet", "Prep simple lunch items", "Load or unload safe dishwasher items", "Put belongings away"],
+        weekly: ["Vacuum or mop one area", "Take out light trash or recycling", "Wipe bathroom sink and mirror", "Help cook a simple meal", "Dust shelves and low furniture"],
+        monthly: ["Clean bedroom deeply", "Sort pantry items", "Wash car with adult nearby", "Help clean appliance fronts"]
+      },
+      "11-12": {
+        label: "Ages 11-12",
+        note: "Good age for multi-step chores after training. Cleaning products, yard tools, cooking heat, and childcare still need clear rules.",
+        daily: ["Manage bedroom reset", "Start personal laundry steps", "Prepare simple meals or snacks", "Care for pets", "Clean kitchen after snack or meal"],
+        weekly: ["Clean bathroom with safe products", "Change sheets", "Vacuum or mop floors", "Help with yard work after training", "Take out trash and recycling"],
+        monthly: ["Organize books and school supplies", "Clean windows at reachable height", "Help clean out fridge", "Help with seasonal yard cleanup"]
+      },
+      "13-15": {
+        label: "Ages 13-15",
+        note: "Teens can own bigger routines, but chemicals, blades, heat, lawn equipment, ladders, and sibling care need training and boundaries.",
+        daily: ["Handle personal laundry", "Cook or assemble a basic meal", "Clean kitchen after use", "Keep room clean", "Help with pets"],
+        weekly: ["Clean bathroom", "Vacuum and mop floors", "Take out trash and recycling", "Help plan meals", "Do trained lawn or yard work"],
+        monthly: ["Deep clean room", "Help organize garage or basement", "Clean bathroom thoroughly", "Restock household supplies"]
+      },
+      "16-18": {
+        label: "Ages 16-18",
+        note: "Older teens can handle adult-like chores when trained. Driving errands, power tools, harsh cleaners, ladders, and childcare still depend on maturity and local rules.",
+        daily: ["Maintain personal space", "Do personal laundry", "Prepare meals", "Clean shared kitchen areas", "Handle approved errands if licensed"],
+        weekly: ["Clean shared bathrooms", "Help grocery shop or manage the list", "Wash car", "Do yard work", "Cook a family meal"],
+        monthly: ["Lead a decluttering project", "Deep clean bedroom", "Clean appliances with approved products", "Help with family meal rotation", "Review and restock supplies"]
+      }
+    };
+
+    const sections = [
+      { key: "daily", title: "Daily", icon: "☀️", points: 1 },
+      { key: "weekly", title: "Weekly", icon: "🧺", points: 3 },
+      { key: "monthly", title: "Monthly", icon: "🧽", points: 5 }
+    ];
+
+    const form = document.querySelector("#chore-form");
+    const ageInput = document.querySelector("#age-input");
+    const message = document.querySelector("#message");
+    const childNamesInput = document.querySelector("#child-names");
+    const rewardGoalInput = document.querySelector("#reward-goal");
+    const prizeInput = document.querySelector("#prize-input");
+    const results = document.querySelector("#results");
+    const emptyState = document.querySelector("#empty-state");
+    const resultsTitle = document.querySelector("#results-title");
+    const resultsCopy = document.querySelector("#results-copy");
+    const assignmentSummary = document.querySelector("#assignment-summary");
+    const leaderboard = document.querySelector("#leaderboard");
+    const cardGrid = document.querySelector("#card-grid");
+    const rangeGrid = document.querySelector("#range-grid");
+    const demoButton = document.querySelector("#demo-button");
+    const resetButton = document.querySelector("#reset-button");
+    const clearProgressButton = document.querySelector("#clear-progress-button");
+    const storageKey = "chore-helper-progress";
+    const assignmentStorageKey = "chore-helper-assignments";
+    let currentRangeKey = null;
+    let currentSelectedAge = null;
+    let progressState = loadProgress();
+    let assignmentState = loadAssignments();
+
+    function loadProgress() {
+      try {
+        return JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveProgress() {
+      localStorage.setItem(storageKey, JSON.stringify(progressState));
+    }
+
+    function loadAssignments() {
+      try {
+        return JSON.parse(localStorage.getItem(assignmentStorageKey)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAssignments() {
+      localStorage.setItem(assignmentStorageKey, JSON.stringify(assignmentState));
+    }
+
+    function getAssignees() {
+      const names = childNamesInput.value
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+      return names.length ? [...new Set(names)] : ["Helper"];
+    }
+
+    function getRewardGoal() {
+      const goal = Number(rewardGoalInput.value.trim() || 25);
+      return Number.isInteger(goal) && goal > 0 ? goal : 25;
+    }
+
+    function getPrize() {
+      return prizeInput.value.trim() || "a prize";
+    }
+
+    function getPlanKey(assignee) {
+      return `${assignee.toLowerCase()}::${currentRangeKey}`;
+    }
+
+    function getChoreId(sectionKey, index) {
+      return `${currentRangeKey}-${sectionKey}-${index}`;
+    }
+
+    function isAssigned(assignee, choreId) {
+      return Boolean(assignmentState[getPlanKey(assignee)]?.[choreId]);
+    }
+
+    function isComplete(assignee, choreId) {
+      return Boolean(progressState[getPlanKey(assignee)]?.[choreId]);
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    function getRangeForAge(age) {
+      if (age >= 2 && age <= 3) return "2-3";
+      if (age >= 4 && age <= 5) return "4-5";
+      if (age >= 6 && age <= 8) return "6-8";
+      if (age >= 9 && age <= 10) return "9-10";
+      if (age >= 11 && age <= 12) return "11-12";
+      if (age >= 13 && age <= 15) return "13-15";
+      if (age >= 16 && age <= 18) return "16-18";
+      return null;
+    }
+
+    function setMessage(text = "", type = "") {
+      message.textContent = text;
+      message.className = `message${type ? ` ${type}` : ""}`;
+    }
+
+    function setActiveRange(rangeKey) {
+      document.querySelectorAll(".range-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.range === rangeKey);
+      });
+    }
+
+    function renderPlan(rangeKey, selectedAge = null) {
+      const plan = chorePlans[rangeKey];
+      currentRangeKey = rangeKey;
+      currentSelectedAge = selectedAge;
+      setActiveRange(rangeKey);
+      setMessage();
+
+      resultsTitle.textContent = selectedAge ? `Assigned chores for age ${selectedAge}` : `Assigned chores for ${plan.label.toLowerCase()}`;
+      resultsCopy.textContent = `${plan.label} plan with simple jobs grouped by how often they need doing. ${plan.note}`;
+      const assignees = getAssignees();
+      assignmentSummary.textContent = `Complete ${plan.label} chore list. Assign any Daily, Weekly, or Monthly chore to one or more kids and track each status.`;
+      leaderboard.innerHTML = getLeaderboardMarkup(assignees);
+      cardGrid.innerHTML = `
+        <section class="child-board" aria-label="Choose chores to assign">
+          <h3 class="child-board-title">Choose from the full chore list</h3>
+          <div class="chooser-grid">
+            ${sections.map((section) => getChooserCardMarkup(section, plan, assignees)).join("")}
+          </div>
+        </section>
+        <section class="child-board" aria-label="Reward progress by child">
+          <h3 class="child-board-title">Reward progress</h3>
+          <div class="chore-card-grid">
+            ${assignees.map((assignee) => getChildProgressMarkup(assignee)).join("")}
+          </div>
+        </section>
+      `;
+
+      emptyState.classList.add("hidden");
+      results.classList.remove("hidden");
+      results.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function getChooserCardMarkup(section, plan, assignees) {
+      const items = plan[section.key].map((item, index) => {
+        const choreId = getChoreId(section.key, index);
+        const assignedNames = assignees.filter((assignee) => isAssigned(assignee, choreId));
+        return `
+          <li>
+            <div class="chore-row">
+              <span class="chore-text">${item}</span>
+              <span class="chore-meta">
+                <span class="point-pill">${section.points} point${section.points === 1 ? "" : "s"}</span>
+              </span>
+              <div class="assignment-options" aria-label="Assign ${escapeHtml(item)}">
+                ${assignees.map((assignee) => `
+                  <label class="assign-toggle">
+                    <input type="checkbox" data-action="toggle-assign" data-assignee-key="${encodeURIComponent(assignee)}" data-chore-id="${choreId}" ${isAssigned(assignee, choreId) ? "checked" : ""}>
+                    ${escapeHtml(assignee)}
+                  </label>
+                `).join("")}
+              </div>
+              <div class="assigned-list">
+                ${assignedNames.length ? assignedNames.map((assignee) => getAssignedPillMarkup(assignee, choreId)).join("") : "<span class=\"help-text\">Not assigned yet</span>"}
+                ${getStatusMarkup(assignees, choreId)}
+              </div>
+            </div>
+          </li>
+        `;
+      }).join("");
+      return `
+        <article class="result-card">
+          <h3 class="card-title"><span class="icon" aria-hidden="true">${section.icon}</span>${section.title}</h3>
+          <ul>${items}</ul>
+        </article>
+      `;
+    }
+
+    function getAssignedPillMarkup(assignee, choreId) {
+      const complete = isComplete(assignee, choreId);
+      return `
+        <span class="assigned-pill ${complete ? "completed" : ""}">
+          ${escapeHtml(assignee)}
+          <button class="chore-action" type="button" data-action="complete" data-assignee-key="${encodeURIComponent(assignee)}" data-chore-id="${choreId}">
+            ${complete ? "Undo" : "Complete"}
+          </button>
+        </span>
+      `;
+    }
+
+    function getStatusMarkup(assignees, choreId) {
+      return assignees.map((assignee) => {
+        const assigned = isAssigned(assignee, choreId);
+        const complete = isComplete(assignee, choreId);
+        const className = complete ? "complete" : assigned ? "assigned" : "";
+        const label = complete ? "Done" : assigned ? "Assigned" : "Open";
+        return `<span class="status-dot ${className}">${escapeHtml(assignee)}: ${label}</span>`;
+      }).join("");
+    }
+
+    function getChildProgressMarkup(assignee) {
+      return `
+        <article class="result-card">
+          <h3 class="card-title">${escapeHtml(assignee)}</h3>
+          ${getRewardMarkup(assignee)}
+        </article>
+      `;
+    }
+
+    function getRewardMarkup(assignee) {
+      const earned = getEarnedPoints(assignee);
+      const goal = getRewardGoal();
+      const percent = Math.min(100, Math.round((earned / goal) * 100));
+      const rewardText = earned >= goal
+        ? `${escapeHtml(getPrize())} earned. Nice work.`
+        : `${goal - earned} point${goal - earned === 1 ? "" : "s"} to ${escapeHtml(getPrize())}.`;
+      return `
+        <div class="reward-panel" aria-label="${escapeHtml(assignee)}'s reward progress">
+          <div class="reward-topline">
+            <span>${escapeHtml(assignee)}'s progress</span>
+            <span class="points-total">${earned}/${goal} points</span>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" style="width: ${percent}%"></div>
+          </div>
+          <p class="reward-copy">${rewardText}</p>
+        </div>
+      `;
+    }
+
+    function getEarnedPoints(assignee) {
+      const completed = progressState[getPlanKey(assignee)] || {};
+      return sections.reduce((total, section) => {
+        const plan = chorePlans[currentRangeKey];
+        return total + plan[section.key].reduce((sum, _item, index) => {
+          const choreId = getChoreId(section.key, index);
+          return completed[choreId] && isAssigned(assignee, choreId) ? sum + section.points : sum;
+        }, 0);
+      }, 0);
+    }
+
+    function getLeaderboardMarkup(assignees) {
+      const goal = getRewardGoal();
+      const leaders = assignees
+        .map((assignee) => ({ assignee, points: getEarnedPoints(assignee) }))
+        .sort((a, b) => b.points - a.points || a.assignee.localeCompare(b.assignee));
+      return `
+        <section class="leaderboard" aria-label="Leaderboard">
+          <h3>Leaderboard for ${escapeHtml(getPrize())}</h3>
+          ${leaders.map((leader, index) => `
+            <div class="leader-row">
+              <span>${index + 1}. ${escapeHtml(leader.assignee)}</span>
+              <span>${leader.points}/${goal}</span>
+            </div>
+          `).join("")}
+        </section>
+      `;
+    }
+
+    function handleAgeSubmit(event) {
+      event.preventDefault();
+      const rawAge = ageInput.value.trim();
+      const age = Number(rawAge);
+
+      if (!rawAge || !Number.isInteger(age)) {
+        setMessage("Please enter a whole number from 2 to 18.", "error");
+        return;
+      }
+
+      const rangeKey = getRangeForAge(age);
+      if (!rangeKey) {
+        setMessage("Chore Helper works best for ages 2 through 18.", "error");
+        return;
+      }
+
+      renderPlan(rangeKey, age);
+    }
+
+    form.addEventListener("submit", handleAgeSubmit);
+
+    rangeGrid.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-range]");
+      if (!button) return;
+      ageInput.value = "";
+      renderPlan(button.dataset.range);
+    });
+
+    demoButton.addEventListener("click", () => {
+      ageInput.value = "7";
+      if (!childNamesInput.value.trim()) childNamesInput.value = "Ava, Mia, Sam";
+      if (!rewardGoalInput.value.trim()) rewardGoalInput.value = "25";
+      if (!prizeInput.value.trim()) prizeInput.value = "Ice cream";
+      renderPlan("6-8", 7);
+    });
+
+    resetButton.addEventListener("click", () => {
+      ageInput.value = "";
+      setMessage();
+      setActiveRange(null);
+      results.classList.add("hidden");
+      emptyState.classList.remove("hidden");
+      cardGrid.innerHTML = "";
+      currentRangeKey = null;
+      currentSelectedAge = null;
+      ageInput.focus();
+    });
+
+    clearProgressButton.addEventListener("click", () => {
+      if (!currentRangeKey) return;
+      getAssignees().forEach((assignee) => {
+        delete progressState[getPlanKey(assignee)];
+      });
+      saveProgress();
+      renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    cardGrid.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-chore-id]");
+      if (!button || !currentRangeKey) return;
+      if (button.dataset.action === "toggle-assign") return;
+      const planKey = getPlanKey(decodeURIComponent(button.dataset.assigneeKey));
+      const choreId = button.dataset.choreId;
+
+      if (button.dataset.action === "assign") {
+        assignmentState[planKey] = assignmentState[planKey] || {};
+        assignmentState[planKey][choreId] = true;
+        saveAssignments();
+      }
+
+      if (button.dataset.action === "unassign") {
+        if (assignmentState[planKey]) delete assignmentState[planKey][choreId];
+        if (progressState[planKey]) delete progressState[planKey][choreId];
+        saveAssignments();
+        saveProgress();
+      }
+
+      if (button.dataset.action === "complete") {
+        progressState[planKey] = progressState[planKey] || {};
+        progressState[planKey][choreId] = !progressState[planKey][choreId];
+        saveProgress();
+      }
+
+      renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    cardGrid.addEventListener("change", (event) => {
+      const checkbox = event.target.closest("[data-action='toggle-assign']");
+      if (!checkbox || !currentRangeKey) return;
+      const planKey = getPlanKey(decodeURIComponent(checkbox.dataset.assigneeKey));
+      const choreId = checkbox.dataset.choreId;
+      assignmentState[planKey] = assignmentState[planKey] || {};
+      progressState[planKey] = progressState[planKey] || {};
+
+      if (checkbox.checked) {
+        assignmentState[planKey][choreId] = true;
+      } else {
+        delete assignmentState[planKey][choreId];
+        delete progressState[planKey][choreId];
+      }
+
+      saveAssignments();
+      saveProgress();
+      renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    childNamesInput.addEventListener("change", () => {
+      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    rewardGoalInput.addEventListener("change", () => {
+      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    prizeInput.addEventListener("change", () => {
+      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js");
+      });
+    }
+  </script>
+</body>
+</html>
