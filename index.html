@@ -368,6 +368,39 @@
       line-height: 1.1;
     }
 
+    .kid-board-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .kid-board-header .child-board-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kid-age-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: #dff7ff;
+      color: var(--primary-dark);
+      font-size: 0.85rem;
+      font-weight: 900;
+    }
+
+    .kid-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
     .chore-card-grid {
       display: grid;
       gap: 14px;
@@ -609,7 +642,7 @@
     <section class="hero" aria-labelledby="app-title">
       <div class="badge">Ages 2-18</div>
       <h1 id="app-title">Kid Chore Board</h1>
-      <p class="intro">Pick an age, choose chores from the full list, and track status for each kid.</p>
+      <p class="intro">Add each kid with their age, choose chores from the right list, and track status for everyone.</p>
     </section>
 
     <section class="planner" aria-label="Chore planner">
@@ -625,8 +658,9 @@
 
         <div class="assignment-grid">
           <div class="input-row">
-            <label for="child-names">Kids</label>
-            <input id="child-names" name="childNames" type="text" maxlength="80" placeholder="Ava, Mia, Sam">
+            <label for="child-names">Kids and ages</label>
+            <input id="child-names" name="childNames" type="text" maxlength="140" placeholder="Sawyer 7, Emmett 9, Landon 15">
+            <p class="help-text">Use name + age for each kid.</p>
           </div>
           <div class="input-row">
             <label for="reward-goal">Reward goal</label>
@@ -753,8 +787,8 @@
     const clearProgressButton = document.querySelector("#clear-progress-button");
     const storageKey = "kid-chore-board-progress";
     const assignmentStorageKey = "kid-chore-board-assignments";
-    let currentRangeKey = null;
-    let currentSelectedAge = null;
+    let currentBoards = [];
+    let currentMode = "kids";
     let progressState = loadProgress();
     let assignmentState = loadAssignments();
 
@@ -782,41 +816,8 @@
       localStorage.setItem(assignmentStorageKey, JSON.stringify(assignmentState));
     }
 
-    function getAssignees() {
-      const names = childNamesInput.value
-        .split(",")
-        .map((name) => name.trim())
-        .filter(Boolean);
-      return names.length ? [...new Set(names)] : ["Helper"];
-    }
-
-    function getRewardGoal() {
-      const goal = Number(rewardGoalInput.value.trim() || 25);
-      return Number.isInteger(goal) && goal > 0 ? goal : 25;
-    }
-
-    function getPrize() {
-      return prizeInput.value.trim() || "a prize";
-    }
-
-    function getPlanKey(assignee) {
-      return `${assignee.toLowerCase()}::${currentRangeKey}`;
-    }
-
-    function getChoreId(sectionKey, index) {
-      return `${currentRangeKey}-${sectionKey}-${index}`;
-    }
-
-    function isAssigned(assignee, choreId) {
-      return Boolean(assignmentState[getPlanKey(assignee)]?.[choreId]);
-    }
-
-    function isComplete(assignee, choreId) {
-      return Boolean(progressState[getPlanKey(assignee)]?.[choreId]);
-    }
-
     function escapeHtml(value) {
-      return value.replace(/[&<>"']/g, (character) => ({
+      return String(value).replace(/[&<>"']/g, (character) => ({
         "&": "&amp;",
         "<": "&lt;",
         ">": "&gt;",
@@ -847,29 +848,115 @@
       });
     }
 
-    function renderPlan(rangeKey, selectedAge = null) {
-      const plan = chorePlans[rangeKey];
-      currentRangeKey = rangeKey;
-      currentSelectedAge = selectedAge;
-      setActiveRange(rangeKey);
+    function getRewardGoal() {
+      const goal = Number(rewardGoalInput.value.trim() || 25);
+      return Number.isInteger(goal) && goal > 0 ? goal : 25;
+    }
+
+    function getPrize() {
+      return prizeInput.value.trim() || "a prize";
+    }
+
+    function getDefaultAge() {
+      const rawAge = ageInput.value.trim();
+      if (!rawAge) return null;
+      const age = Number(rawAge);
+      return Number.isInteger(age) ? age : NaN;
+    }
+
+    function getPlanKey(child) {
+      return `${child.name.toLowerCase()}::${child.rangeKey}`;
+    }
+
+    function getChoreId(rangeKey, sectionKey, index) {
+      return `${rangeKey}-${sectionKey}-${index}`;
+    }
+
+    function isAssigned(child, choreId) {
+      return Boolean(assignmentState[getPlanKey(child)]?.[choreId]);
+    }
+
+    function isComplete(child, choreId) {
+      return Boolean(progressState[getPlanKey(child)]?.[choreId]);
+    }
+
+    function parseKids(defaultAge = null) {
+      const rawNames = childNamesInput.value.trim();
+      const pieces = rawNames
+        ? rawNames.split(/[,;\n]+/).map((piece) => piece.trim()).filter(Boolean)
+        : [];
+
+      if (!pieces.length && Number.isInteger(defaultAge)) {
+        return { kids: [makeChild("Helper", defaultAge)], error: "" };
+      }
+
+      if (!pieces.length) {
+        return { kids: [], error: "Add each kid with an age, like Sawyer 7, Emmett 9, Landon 15." };
+      }
+
+      const kids = [];
+      const usedNames = new Set();
+
+      for (const piece of pieces) {
+        const ageMatch = piece.match(/\b(1[0-8]|[2-9])\b\s*$/);
+        const age = ageMatch ? Number(ageMatch[1]) : defaultAge;
+        const name = (ageMatch ? piece.slice(0, ageMatch.index) : piece).replace(/[:=-]+$/, "").trim();
+
+        if (!name) {
+          return { kids: [], error: "Each kid needs a name before the age." };
+        }
+
+        if (!Number.isInteger(age)) {
+          return { kids: [], error: `Add an age for ${name}, or enter one shared age above.` };
+        }
+
+        const child = makeChild(name, age);
+        if (!child) {
+          return { kids: [], error: `${name}'s age needs to be 2 through 18.` };
+        }
+
+        const key = child.name.toLowerCase();
+        if (!usedNames.has(key)) {
+          usedNames.add(key);
+          kids.push(child);
+        }
+      }
+
+      return { kids, error: "" };
+    }
+
+    function makeChild(name, age) {
+      const rangeKey = getRangeForAge(age);
+      return rangeKey ? { name, age, rangeKey } : null;
+    }
+
+    function getRangeModeKids(rangeKey) {
+      const names = childNamesInput.value
+        .split(/[,;\n]+/)
+        .map((name) => name.replace(/\b(1[0-8]|[2-9])\b\s*$/, "").replace(/[:=-]+$/, "").trim())
+        .filter(Boolean);
+      const uniqueNames = [...new Set(names.length ? names : ["Helper"])];
+      const sampleAge = Number(rangeKey.split("-")[0]);
+      return uniqueNames.map((name) => ({ name, age: sampleAge, rangeKey }));
+    }
+
+    function renderBoards(kids, mode = "kids") {
+      currentBoards = kids;
+      currentMode = mode;
+      setActiveRange(mode === "range" && kids[0] ? kids[0].rangeKey : null);
       setMessage();
 
-      resultsTitle.textContent = selectedAge ? `Assigned chores for age ${selectedAge}` : `Assigned chores for ${plan.label.toLowerCase()}`;
-      resultsCopy.textContent = `${plan.label} plan with simple jobs grouped by how often they need doing. ${plan.note}`;
-      const assignees = getAssignees();
-      assignmentSummary.textContent = `Complete ${plan.label} chore list. Assign any Daily, Weekly, or Monthly chore to one or more kids and track each status.`;
-      leaderboard.innerHTML = getLeaderboardMarkup(assignees);
+      const kidCount = kids.length;
+      resultsTitle.textContent = kidCount === 1 ? `${kids[0].name}'s chore board` : `Chore boards for ${kidCount} kids`;
+      resultsCopy.textContent = kids.map((child) => `${child.name}: age ${child.age} (${chorePlans[child.rangeKey].label})`).join(" • ");
+      assignmentSummary.textContent = "Each kid now has their own age-appropriate Daily, Weekly, and Monthly chore list.";
+      leaderboard.innerHTML = getLeaderboardMarkup(kids);
       cardGrid.innerHTML = `
-        <section class="child-board" aria-label="Choose chores to assign">
-          <h3 class="child-board-title">Choose from the full chore list</h3>
-          <div class="chooser-grid">
-            ${sections.map((section) => getChooserCardMarkup(section, plan, assignees)).join("")}
-          </div>
-        </section>
+        ${kids.map((child) => getChildBoardMarkup(child)).join("")}
         <section class="child-board" aria-label="Reward progress by child">
           <h3 class="child-board-title">Reward progress</h3>
           <div class="chore-card-grid">
-            ${assignees.map((assignee) => getChildProgressMarkup(assignee)).join("")}
+            ${kids.map((child) => getChildProgressMarkup(child)).join("")}
           </div>
         </section>
       `;
@@ -879,28 +966,47 @@
       results.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    function getChooserCardMarkup(section, plan, assignees) {
+    function getChildBoardMarkup(child) {
+      const plan = chorePlans[child.rangeKey];
+      return `
+        <section class="child-board" aria-label="${escapeHtml(child.name)} chore list">
+          <div class="kid-board-header">
+            <h3 class="child-board-title">
+              ${escapeHtml(child.name)}
+              <span class="kid-age-pill">Age ${child.age}</span>
+              <span class="kid-age-pill">${plan.label}</span>
+            </h3>
+          </div>
+          <p class="kid-note">${plan.note}</p>
+          <div class="chooser-grid">
+            ${sections.map((section) => getChooserCardMarkup(section, child)).join("")}
+          </div>
+        </section>
+      `;
+    }
+
+    function getChooserCardMarkup(section, child) {
+      const plan = chorePlans[child.rangeKey];
       const items = plan[section.key].map((item, index) => {
-        const choreId = getChoreId(section.key, index);
-        const assignedNames = assignees.filter((assignee) => isAssigned(assignee, choreId));
+        const choreId = getChoreId(child.rangeKey, section.key, index);
+        const assigned = isAssigned(child, choreId);
+        const complete = isComplete(child, choreId);
         return `
-          <li>
+          <li class="${complete ? "completed" : ""}">
             <div class="chore-row">
-              <span class="chore-text">${item}</span>
+              <span class="chore-text">${escapeHtml(item)}</span>
               <span class="chore-meta">
                 <span class="point-pill">${section.points} point${section.points === 1 ? "" : "s"}</span>
               </span>
-              <div class="assignment-options" aria-label="Assign ${escapeHtml(item)}">
-                ${assignees.map((assignee) => `
-                  <label class="assign-toggle">
-                    <input type="checkbox" data-action="toggle-assign" data-assignee-key="${encodeURIComponent(assignee)}" data-chore-id="${choreId}" ${isAssigned(assignee, choreId) ? "checked" : ""}>
-                    ${escapeHtml(assignee)}
-                  </label>
-                `).join("")}
+              <div class="assignment-options" aria-label="Assign ${escapeHtml(item)} to ${escapeHtml(child.name)}">
+                <label class="assign-toggle">
+                  <input type="checkbox" data-action="toggle-assign" data-plan-key="${encodeURIComponent(getPlanKey(child))}" data-chore-id="${choreId}" ${assigned ? "checked" : ""}>
+                  Assign to ${escapeHtml(child.name)}
+                </label>
               </div>
               <div class="assigned-list">
-                ${assignedNames.length ? assignedNames.map((assignee) => getAssignedPillMarkup(assignee, choreId)).join("") : "<span class=\"help-text\">Not assigned yet</span>"}
-                ${getStatusMarkup(assignees, choreId)}
+                ${assigned ? getAssignedPillMarkup(child, choreId) : "<span class=\"help-text\">Not assigned yet</span>"}
+                <span class="status-dot ${complete ? "complete" : assigned ? "assigned" : ""}">${complete ? "Done" : assigned ? "Assigned" : "Open"}</span>
               </div>
             </div>
           </li>
@@ -914,48 +1020,38 @@
       `;
     }
 
-    function getAssignedPillMarkup(assignee, choreId) {
-      const complete = isComplete(assignee, choreId);
+    function getAssignedPillMarkup(child, choreId) {
+      const complete = isComplete(child, choreId);
       return `
         <span class="assigned-pill ${complete ? "completed" : ""}">
-          ${escapeHtml(assignee)}
-          <button class="chore-action" type="button" data-action="complete" data-assignee-key="${encodeURIComponent(assignee)}" data-chore-id="${choreId}">
+          ${escapeHtml(child.name)}
+          <button class="chore-action" type="button" data-action="complete" data-plan-key="${encodeURIComponent(getPlanKey(child))}" data-chore-id="${choreId}">
             ${complete ? "Undo" : "Complete"}
           </button>
         </span>
       `;
     }
 
-    function getStatusMarkup(assignees, choreId) {
-      return assignees.map((assignee) => {
-        const assigned = isAssigned(assignee, choreId);
-        const complete = isComplete(assignee, choreId);
-        const className = complete ? "complete" : assigned ? "assigned" : "";
-        const label = complete ? "Done" : assigned ? "Assigned" : "Open";
-        return `<span class="status-dot ${className}">${escapeHtml(assignee)}: ${label}</span>`;
-      }).join("");
-    }
-
-    function getChildProgressMarkup(assignee) {
+    function getChildProgressMarkup(child) {
       return `
         <article class="result-card">
-          <h3 class="card-title">${escapeHtml(assignee)}</h3>
-          ${getRewardMarkup(assignee)}
+          <h3 class="card-title">${escapeHtml(child.name)}</h3>
+          ${getRewardMarkup(child)}
         </article>
       `;
     }
 
-    function getRewardMarkup(assignee) {
-      const earned = getEarnedPoints(assignee);
+    function getRewardMarkup(child) {
+      const earned = getEarnedPoints(child);
       const goal = getRewardGoal();
       const percent = Math.min(100, Math.round((earned / goal) * 100));
       const rewardText = earned >= goal
         ? `${escapeHtml(getPrize())} earned. Nice work.`
         : `${goal - earned} point${goal - earned === 1 ? "" : "s"} to ${escapeHtml(getPrize())}.`;
       return `
-        <div class="reward-panel" aria-label="${escapeHtml(assignee)}'s reward progress">
+        <div class="reward-panel" aria-label="${escapeHtml(child.name)}'s reward progress">
           <div class="reward-topline">
-            <span>${escapeHtml(assignee)}'s progress</span>
+            <span>${escapeHtml(child.name)}'s progress</span>
             <span class="points-total">${earned}/${goal} points</span>
           </div>
           <div class="progress-track" aria-hidden="true">
@@ -966,28 +1062,28 @@
       `;
     }
 
-    function getEarnedPoints(assignee) {
-      const completed = progressState[getPlanKey(assignee)] || {};
-      return sections.reduce((total, section) => {
-        const plan = chorePlans[currentRangeKey];
-        return total + plan[section.key].reduce((sum, _item, index) => {
-          const choreId = getChoreId(section.key, index);
-          return completed[choreId] && isAssigned(assignee, choreId) ? sum + section.points : sum;
-        }, 0);
-      }, 0);
+    function getEarnedPoints(child) {
+      const completed = progressState[getPlanKey(child)] || {};
+      const plan = chorePlans[child.rangeKey];
+      return sections.reduce((total, section) => (
+        total + plan[section.key].reduce((sum, _item, index) => {
+          const choreId = getChoreId(child.rangeKey, section.key, index);
+          return completed[choreId] && isAssigned(child, choreId) ? sum + section.points : sum;
+        }, 0)
+      ), 0);
     }
 
-    function getLeaderboardMarkup(assignees) {
+    function getLeaderboardMarkup(kids) {
       const goal = getRewardGoal();
-      const leaders = assignees
-        .map((assignee) => ({ assignee, points: getEarnedPoints(assignee) }))
-        .sort((a, b) => b.points - a.points || a.assignee.localeCompare(b.assignee));
+      const leaders = kids
+        .map((child) => ({ child, points: getEarnedPoints(child) }))
+        .sort((a, b) => b.points - a.points || a.child.name.localeCompare(b.child.name));
       return `
         <section class="leaderboard" aria-label="Leaderboard">
           <h3>Leaderboard for ${escapeHtml(getPrize())}</h3>
           ${leaders.map((leader, index) => `
             <div class="leader-row">
-              <span>${index + 1}. ${escapeHtml(leader.assignee)}</span>
+              <span>${index + 1}. ${escapeHtml(leader.child.name)}</span>
               <span>${leader.points}/${goal}</span>
             </div>
           `).join("")}
@@ -997,21 +1093,25 @@
 
     function handleAgeSubmit(event) {
       event.preventDefault();
-      const rawAge = ageInput.value.trim();
-      const age = Number(rawAge);
+      const defaultAge = getDefaultAge();
 
-      if (!rawAge || !Number.isInteger(age)) {
+      if (Number.isNaN(defaultAge)) {
         setMessage("Please enter a whole number from 2 to 18.", "error");
         return;
       }
 
-      const rangeKey = getRangeForAge(age);
-      if (!rangeKey) {
+      if (Number.isInteger(defaultAge) && !getRangeForAge(defaultAge)) {
         setMessage("Kid Chore Board works best for ages 2 through 18.", "error");
         return;
       }
 
-      renderPlan(rangeKey, age);
+      const parsed = parseKids(defaultAge);
+      if (parsed.error) {
+        setMessage(parsed.error, "error");
+        return;
+      }
+
+      renderBoards(parsed.kids);
     }
 
     form.addEventListener("submit", handleAgeSubmit);
@@ -1020,15 +1120,15 @@
       const button = event.target.closest("[data-range]");
       if (!button) return;
       ageInput.value = "";
-      renderPlan(button.dataset.range);
+      renderBoards(getRangeModeKids(button.dataset.range), "range");
     });
 
     demoButton.addEventListener("click", () => {
-      ageInput.value = "7";
-      if (!childNamesInput.value.trim()) childNamesInput.value = "Ava, Mia, Sam";
+      ageInput.value = "";
+      childNamesInput.value = "Sawyer 7, Emmett 9, Landon 15";
       if (!rewardGoalInput.value.trim()) rewardGoalInput.value = "25";
       if (!prizeInput.value.trim()) prizeInput.value = "Ice cream";
-      renderPlan("6-8", 7);
+      renderBoards(parseKids().kids);
     });
 
     resetButton.addEventListener("click", () => {
@@ -1038,39 +1138,26 @@
       results.classList.add("hidden");
       emptyState.classList.remove("hidden");
       cardGrid.innerHTML = "";
-      currentRangeKey = null;
-      currentSelectedAge = null;
+      currentBoards = [];
+      currentMode = "kids";
       ageInput.focus();
     });
 
     clearProgressButton.addEventListener("click", () => {
-      if (!currentRangeKey) return;
-      getAssignees().forEach((assignee) => {
-        delete progressState[getPlanKey(assignee)];
+      if (!currentBoards.length) return;
+      currentBoards.forEach((child) => {
+        delete progressState[getPlanKey(child)];
       });
       saveProgress();
-      renderPlan(currentRangeKey, currentSelectedAge);
+      renderBoards(currentBoards, currentMode);
     });
 
     cardGrid.addEventListener("click", (event) => {
       const button = event.target.closest("[data-chore-id]");
-      if (!button || !currentRangeKey) return;
+      if (!button || !currentBoards.length) return;
       if (button.dataset.action === "toggle-assign") return;
-      const planKey = getPlanKey(decodeURIComponent(button.dataset.assigneeKey));
+      const planKey = decodeURIComponent(button.dataset.planKey);
       const choreId = button.dataset.choreId;
-
-      if (button.dataset.action === "assign") {
-        assignmentState[planKey] = assignmentState[planKey] || {};
-        assignmentState[planKey][choreId] = true;
-        saveAssignments();
-      }
-
-      if (button.dataset.action === "unassign") {
-        if (assignmentState[planKey]) delete assignmentState[planKey][choreId];
-        if (progressState[planKey]) delete progressState[planKey][choreId];
-        saveAssignments();
-        saveProgress();
-      }
 
       if (button.dataset.action === "complete") {
         progressState[planKey] = progressState[planKey] || {};
@@ -1078,13 +1165,13 @@
         saveProgress();
       }
 
-      renderPlan(currentRangeKey, currentSelectedAge);
+      renderBoards(currentBoards, currentMode);
     });
 
     cardGrid.addEventListener("change", (event) => {
       const checkbox = event.target.closest("[data-action='toggle-assign']");
-      if (!checkbox || !currentRangeKey) return;
-      const planKey = getPlanKey(decodeURIComponent(checkbox.dataset.assigneeKey));
+      if (!checkbox || !currentBoards.length) return;
+      const planKey = decodeURIComponent(checkbox.dataset.planKey);
       const choreId = checkbox.dataset.choreId;
       assignmentState[planKey] = assignmentState[planKey] || {};
       progressState[planKey] = progressState[planKey] || {};
@@ -1098,19 +1185,22 @@
 
       saveAssignments();
       saveProgress();
-      renderPlan(currentRangeKey, currentSelectedAge);
+      renderBoards(currentBoards, currentMode);
     });
 
     childNamesInput.addEventListener("change", () => {
-      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+      if (!currentBoards.length) return;
+      const defaultAge = getDefaultAge();
+      const parsed = parseKids(Number.isNaN(defaultAge) ? null : defaultAge);
+      if (!parsed.error) renderBoards(parsed.kids, "kids");
     });
 
     rewardGoalInput.addEventListener("change", () => {
-      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+      if (currentBoards.length) renderBoards(currentBoards, currentMode);
     });
 
     prizeInput.addEventListener("change", () => {
-      if (currentRangeKey) renderPlan(currentRangeKey, currentSelectedAge);
+      if (currentBoards.length) renderBoards(currentBoards, currentMode);
     });
 
     if ("serviceWorker" in navigator) {
