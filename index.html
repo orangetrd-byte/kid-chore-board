@@ -878,6 +878,10 @@
       <p class="muted">Choose Mom or Dad. The first time, enter a new 6-digit PIN. After that, use your saved PIN to unlock the board.</p>
       <form class="mini-grid" id="login-form">
         <div class="field">
+          <label for="family-code">Family code</label>
+          <input id="family-code" maxlength="48" autocomplete="off" placeholder="smith-family">
+        </div>
+        <div class="field">
           <label for="parent-select">Parent</label>
           <select id="parent-select">
             <option value="mom">Mom</option>
@@ -949,18 +953,12 @@
           <h2>Family Sync</h2>
           <span class="pill" id="sync-status">Local only</span>
         </div>
-        <div class="field-grid">
-          <div class="field">
-            <label for="family-code">Family code</label>
-            <input id="family-code" maxlength="48" autocomplete="off" placeholder="kid-chore-board">
-          </div>
-        </div>
         <div class="action-row">
           <button class="tertiary" type="button" id="sync-connect-button">Connect Sync</button>
           <button class="ghost" type="button" id="sync-push-button">Save This Device</button>
           <button class="ghost" type="button" id="sync-disconnect-button">Disconnect</button>
         </div>
-        <p class="muted">Use the same family code on each device.</p>
+        <p class="muted">Family code is chosen at parent login and shared by every device in the household.</p>
       </section>
 
       <section class="dashboard" aria-label="Kids dashboard">
@@ -1364,6 +1362,7 @@
       setMessage(`${getParentLabel(parent)} unlocked the board.`);
       saveState();
       render();
+      window.dispatchEvent(new CustomEvent("kid-chore-board-parent-unlocked"));
       return true;
     }
 
@@ -2508,6 +2507,10 @@ function getDragAfterElement(container, y) {
       unsubscribeSync = null;
       syncDocRef = null;
       setSyncStatus("Local only");
+    });
+
+    window.addEventListener("kid-chore-board-parent-unlocked", () => {
+      connectSync().catch(() => setSyncStatus("Sync error", "error"));
     });
 
     window.addEventListener("kid-chore-board-save", queueCloudSave);
