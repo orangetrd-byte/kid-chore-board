@@ -851,7 +851,10 @@
         <h2>Assigned Chores</h2>
         <span class="pill">Locked view</span>
       </div>
-      <div class="calendar-grid" id="calendar-grid"></div>
+      <section class="board-grid">
+        <div class="calendar-grid" id="calendar-grid"></div>
+        <section class="leaderboard" id="locked-leaderboard" aria-label="Locked leaderboard"></section>
+      </section>
     </section>
 
     <section class="layout hidden" id="app-layout" aria-label="Family chore manager">
@@ -1001,6 +1004,7 @@
     const loginMessage = document.querySelector("#login-message");
     const lockedBoard = document.querySelector("#locked-board");
     const calendarGrid = document.querySelector("#calendar-grid");
+    const lockedLeaderboard = document.querySelector("#locked-leaderboard");
     const kidNameInput = document.querySelector("#kid-name");
     const kidAgeInput = document.querySelector("#kid-age");
     const saveKidButton = document.querySelector("#save-kid-button");
@@ -1167,6 +1171,7 @@
       renderKids();
       renderLeaderboard();
       renderLockedCalendar();
+      renderLockedLeaderboard();
     }
 
     function getKidGoal(kid) {
@@ -1434,6 +1439,7 @@
       renderKids();
       renderView();
       renderLockedCalendar();
+      renderLockedLeaderboard();
     }
 
     function renderKids() {
@@ -1650,14 +1656,14 @@
       `).join("");
     }
 
-    function renderLeaderboard() {
+    function getLeaderboardMarkup(subtitle = "Each kid tracks their own prize.") {
       const leaders = [...state.kids]
         .map((kid) => ({ kid, stats: getStats(kid) }))
         .sort((a, b) => b.stats.points - a.stats.points || a.kid.name.localeCompare(b.kid.name));
 
-      leaderboard.innerHTML = `
+      return `
         <h2>Leaderboard</h2>
-        <p class="muted">Each kid tracks their own prize.</p>
+        <p class="muted">${escapeHtml(subtitle)}</p>
         <div class="leader-list">
           ${leaders.length ? leaders.map((leader, index) => `
             <div class="leader-row">
@@ -1667,6 +1673,16 @@
           `).join("") : "<p class=\"muted\">Add kids to start tracking points.</p>"}
         </div>
       `;
+    }
+
+    function renderLeaderboard() {
+      if (!leaderboard) return;
+      leaderboard.innerHTML = getLeaderboardMarkup();
+    }
+
+    function renderLockedLeaderboard() {
+      if (!lockedLeaderboard) return;
+      lockedLeaderboard.innerHTML = getLeaderboardMarkup("Points stay visible while parent controls are locked.");
     }
 
     function closePeriod(kid, period) {
