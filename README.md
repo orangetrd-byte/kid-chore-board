@@ -14,6 +14,10 @@ python -m http.server 8000
 
 Open the app in a browser that supports PWAs, then choose the browser's install option. The app includes a manifest and service worker so it can run in standalone mode and load offline after the first visit.
 
+## Family Sync
+
+The app can sync through Firebase Firestore. Create a Firebase web app, enable Firestore, then paste the Firebase web config JSON into Family Sync. Use the same family code on every device. The app stores one document at `families/{family-code}` and keeps local storage as the offline fallback.
+
 ## File Structure
 
 ```text

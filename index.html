@@ -216,6 +216,22 @@
       color: var(--danger);
     }
 
+    .sync-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .sync-panel textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .sync-status {
+      align-self: center;
+      font-weight: 900;
+    }
+
     .dashboard {
       display: grid;
       gap: 14px;
@@ -933,6 +949,29 @@
         <p class="message" id="message" role="status" aria-live="polite"></p>
       </form>
 
+      <section class="panel sync-panel" aria-label="Family sync">
+        <div class="section-header">
+          <h2>Family Sync</h2>
+          <span class="pill" id="sync-status">Local only</span>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="family-code">Family code</label>
+            <input id="family-code" maxlength="48" autocomplete="off" placeholder="our-family-board">
+          </div>
+          <div class="field">
+            <label for="firebase-config">Firebase config JSON</label>
+            <textarea id="firebase-config" spellcheck="false" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'></textarea>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="tertiary" type="button" id="sync-connect-button">Connect Sync</button>
+          <button class="ghost" type="button" id="sync-push-button">Save This Device</button>
+          <button class="ghost" type="button" id="sync-disconnect-button">Disconnect</button>
+        </div>
+        <p class="muted">Use the same Firebase config and family code on each device.</p>
+      </section>
+
       <section class="dashboard" aria-label="Kids dashboard">
         <div class="section-header">
           <div class="view-toggle" role="tablist" aria-label="View">
@@ -1145,7 +1184,23 @@
     function saveState() {
       state = normalizeState(state);
       localStorage.setItem(stateKey, JSON.stringify(state));
+      window.dispatchEvent(new CustomEvent("kid-chore-board-save", {
+        detail: { state: JSON.parse(JSON.stringify({ ...state, activeParent: "" })) }
+      }));
     }
+
+    function applySyncedState(nextState) {
+      const activeParent = state.activeParent;
+      state = normalizeState({ ...defaultState, ...nextState, activeParent });
+      localStorage.setItem(stateKey, JSON.stringify(state));
+      render();
+    }
+
+    window.kidChoreBoard = {
+      getState: () => normalizeState(JSON.parse(JSON.stringify({ ...state, activeParent: "" }))),
+      applySyncedState,
+      setMessage
+    };
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (character) => ({
@@ -2357,6 +2412,127 @@ function getDragAfterElement(container, y) {
         navigator.serviceWorker.register("service-worker.js");
       });
     }
+  </script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const syncConfigKey = "kid-chore-board-firebase-config";
+    const syncFamilyKey = "kid-chore-board-family-code";
+    const configInput = document.querySelector("#firebase-config");
+    const familyCodeInput = document.querySelector("#family-code");
+    const connectButton = document.querySelector("#sync-connect-button");
+    const pushButton = document.querySelector("#sync-push-button");
+    const disconnectButton = document.querySelector("#sync-disconnect-button");
+    const syncStatus = document.querySelector("#sync-status");
+    let syncApp = null;
+    let syncDb = null;
+    let syncDocRef = null;
+    let unsubscribeSync = null;
+    let saveTimer = 0;
+
+    configInput.value = localStorage.getItem(syncConfigKey) || "";
+    familyCodeInput.value = localStorage.getItem(syncFamilyKey) || "";
+
+    function setSyncStatus(text, type = "") {
+      syncStatus.textContent = text;
+      syncStatus.className = `pill sync-status${type ? ` ${type}` : ""}`;
+    }
+
+    function getFamilyCode() {
+      return familyCodeInput.value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    }
+
+    function getFirebaseConfig() {
+      try {
+        const config = JSON.parse(configInput.value.trim());
+        if (!config.apiKey || !config.projectId || !config.appId) return null;
+        return config;
+      } catch {
+        return null;
+      }
+    }
+
+    function getCloudState() {
+      const state = window.kidChoreBoard.getState();
+      state.activeParent = "";
+      return state;
+    }
+
+    async function pushCloudState() {
+      if (!syncDocRef) return;
+      await setDoc(syncDocRef, {
+        app: "kid-chore-board",
+        updatedAt: Date.now(),
+        state: getCloudState()
+      }, { merge: true });
+      setSyncStatus("Synced");
+    }
+
+    function queueCloudSave() {
+      if (!syncDocRef) return;
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => {
+        pushCloudState().catch(() => setSyncStatus("Sync error", "error"));
+      }, 650);
+    }
+
+    async function connectSync() {
+      const config = getFirebaseConfig();
+      const familyCode = getFamilyCode();
+      if (!config) {
+        setSyncStatus("Config needed", "error");
+        window.kidChoreBoard.setMessage("Paste the Firebase web app config JSON first.", "error");
+        return;
+      }
+      if (!familyCode) {
+        setSyncStatus("Family code needed", "error");
+        window.kidChoreBoard.setMessage("Enter a family code for this household.", "error");
+        return;
+      }
+
+      localStorage.setItem(syncConfigKey, JSON.stringify(config));
+      localStorage.setItem(syncFamilyKey, familyCode);
+      configInput.value = JSON.stringify(config, null, 2);
+      familyCodeInput.value = familyCode;
+
+      if (!syncApp) syncApp = initializeApp(config);
+      syncDb = getFirestore(syncApp);
+      syncDocRef = doc(syncDb, "families", familyCode);
+      setSyncStatus("Connecting");
+
+      const existing = await getDoc(syncDocRef);
+      if (!existing.exists()) await pushCloudState();
+
+      if (unsubscribeSync) unsubscribeSync();
+      unsubscribeSync = onSnapshot(syncDocRef, (snapshot) => {
+        const data = snapshot.data();
+        if (!data?.state) return;
+        window.kidChoreBoard.applySyncedState(data.state);
+        setSyncStatus("Synced");
+      }, () => setSyncStatus("Sync error", "error"));
+    }
+
+    connectButton.addEventListener("click", () => {
+      connectSync().catch(() => setSyncStatus("Sync error", "error"));
+    });
+
+    pushButton.addEventListener("click", () => {
+      if (!syncDocRef) {
+        connectSync().then(pushCloudState).catch(() => setSyncStatus("Sync error", "error"));
+        return;
+      }
+      pushCloudState().catch(() => setSyncStatus("Sync error", "error"));
+    });
+
+    disconnectButton.addEventListener("click", () => {
+      if (unsubscribeSync) unsubscribeSync();
+      unsubscribeSync = null;
+      syncDocRef = null;
+      setSyncStatus("Local only");
+    });
+
+    window.addEventListener("kid-chore-board-save", queueCloudSave);
   </script>
 </body>
 </html>
