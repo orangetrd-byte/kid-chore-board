@@ -1242,14 +1242,24 @@
       loginMessage.className = `message${type ? ` ${type}` : ""}`;
     }
 
+    function getParentKey(parent) {
+      return parent === "dad" ? "dad" : "mom";
+    }
+
+    function getParentLabel(parent) {
+      return getParentKey(parent) === "dad" ? "Dad" : "Mom";
+    }
+
     function updateParentPinHint() {
-      const parentName = parentSelect.value === "mom" ? "Mom" : "Dad";
-      parentPinHint.textContent = state.parentPins[parentSelect.value]
+      const parent = getParentKey(parentSelect.value);
+      const parentName = getParentLabel(parent);
+      parentPinHint.textContent = state.parentPins[parent]
         ? `${parentName} PIN is set. Enter it to unlock.`
         : `${parentName} PIN is not set yet. Enter 6 digits to create it.`;
     }
 
     function unlockParent(parent, pin) {
+      parent = getParentKey(parent);
       if (!/^\d{6}$/.test(pin)) {
         setLoginMessage("Enter a 6-digit PIN.", "error");
         return false;
@@ -1257,7 +1267,7 @@
 
       if (!state.parentPins[parent]) {
         state.parentPins[parent] = pin;
-        logAction(`${parent === "mom" ? "Mom" : "Dad"} set a parent PIN.`);
+        logAction(`${getParentLabel(parent)} set a parent PIN.`);
       } else if (pin !== state.parentPins[parent]) {
         setLoginMessage("PIN did not match.", "error");
         return false;
@@ -1265,9 +1275,10 @@
 
       adultUnlocked = true;
       state.activeParent = parent;
+      parentSelect.value = parent;
       parentPinInput.value = "";
       setLoginMessage();
-      setMessage(`${parent === "mom" ? "Mom" : "Dad"} unlocked the board.`);
+      setMessage(`${getParentLabel(parent)} unlocked the board.`);
       saveState();
       render();
       return true;
@@ -1429,7 +1440,7 @@
       prizeInput.value = state.prize;
       graceHoursInput.value = state.graceHours;
       saveKidButton.textContent = editingKidId ? "Save Changes" : "Add Kid";
-      adultLockButton.textContent = `Lock ${state.activeParent === "dad" ? "Dad" : "Mom"}`;
+      adultLockButton.textContent = state.activeParent ? `Lock ${getParentLabel(state.activeParent)}` : "Lock App";
       adultLockButton.className = "ghost";
       loginPanel.classList.toggle("hidden", adultUnlocked);
       appLayout.classList.toggle("hidden", !adultUnlocked);
