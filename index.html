@@ -229,6 +229,7 @@
       gap: 12px;
       padding: 14px;
       text-align: left;
+      border-left: 8px solid var(--kid-color, var(--primary));
     }
 
     .kid-card-actions {
@@ -247,6 +248,25 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
+    }
+
+    .kid-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .kid-avatar {
+      display: inline-grid;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--kid-color, var(--primary));
+      color: #ffffff;
+      font-size: 1.45rem;
+      box-shadow: 0 8px 18px rgba(33, 49, 60, 0.18);
     }
 
     .kid-name {
@@ -284,6 +304,7 @@
       display: grid;
       gap: 14px;
       padding: 14px;
+      border-left: 8px solid var(--selected-kid-color, var(--primary));
       animation: reveal 260ms ease both;
     }
 
@@ -583,6 +604,29 @@
       background: #ffffff;
     }
 
+    .celebration {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 20;
+      animation: celebrate-hide 900ms ease forwards;
+    }
+
+    .celebration-burst {
+      display: grid;
+      width: 132px;
+      height: 132px;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--burst-color, var(--primary));
+      color: #ffffff;
+      font-size: 4rem;
+      box-shadow: var(--shadow);
+      animation: celebrate-pop 760ms ease forwards;
+    }
+
     .leaderboard {
       display: grid;
       gap: 10px;
@@ -617,6 +661,30 @@
       to {
         opacity: 1;
         transform: translateY(0);
+      }
+    }
+
+    @keyframes celebrate-pop {
+      0% {
+        opacity: 0;
+        transform: scale(0.6) rotate(-8deg);
+      }
+      35% {
+        opacity: 1;
+        transform: scale(1.08) rotate(5deg);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.18) rotate(0deg);
+      }
+    }
+
+    @keyframes celebrate-hide {
+      0%, 85% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
       }
     }
 
@@ -804,6 +872,9 @@
       { key: "monthly", title: "Monthly", icon: "🧽", points: 5 }
     ];
 
+    const kidAvatars = ["⭐", "🚀", "🎨", "⚡", "🌈", "🏆", "🎮", "🧩", "🎵", "🔥"];
+    const kidColors = ["#19a7ce", "#ff8f5f", "#7b61ff", "#2fbf71", "#f5a623", "#ef476f", "#118ab2", "#06d6a0", "#8d6e63", "#9c27b0"];
+
     const form = document.querySelector("#setup-form");
     const kidNameInput = document.querySelector("#kid-name");
     const kidAgeInput = document.querySelector("#kid-age");
@@ -878,11 +949,13 @@
       if (nextState.completions && !Object.keys(nextState.approvals).length) {
         nextState.approvals = nextState.completions;
       }
-      nextState.kids = (nextState.kids || []).map((kid) => ({
+      nextState.kids = (nextState.kids || []).map((kid, index) => ({
         ...kid,
         pin: kid.pin || "1234",
         rewardGoal: Number.isInteger(Number(kid.rewardGoal)) && Number(kid.rewardGoal) > 0 ? Number(kid.rewardGoal) : nextState.rewardGoal,
-        prize: kid.prize || nextState.prize || "a prize"
+        prize: kid.prize || nextState.prize || "a prize",
+        avatar: kid.avatar || kidAvatars[index % kidAvatars.length],
+        color: kid.color || kidColors[index % kidColors.length]
       }));
       nextState.kids.forEach((kid) => {
         nextState.assignments[kid.id] = nextState.assignments[kid.id] || {};
@@ -925,6 +998,14 @@
     function setMessage(text = "", type = "") {
       message.textContent = text;
       message.className = `message${type ? ` ${type}` : ""}`;
+    }
+
+    function celebrateKid(kid, symbol = "✓") {
+      const celebration = document.createElement("div");
+      celebration.className = "celebration";
+      celebration.innerHTML = `<div class="celebration-burst" style="--burst-color: ${escapeHtml(kid.color || "#19a7ce")}">${escapeHtml(kid.avatar || symbol)}</div>`;
+      document.body.appendChild(celebration);
+      window.setTimeout(() => celebration.remove(), 950);
     }
 
     function makeId(name) {
@@ -1052,7 +1133,18 @@
         return;
       }
 
-      const kid = { id: makeId(trimmedName), name: trimmedName, age: parsedAge, rangeKey, pin: trimmedPin, rewardGoal: state.rewardGoal, prize: state.prize };
+      const identityIndex = state.kids.length % kidAvatars.length;
+      const kid = {
+        id: makeId(trimmedName),
+        name: trimmedName,
+        age: parsedAge,
+        rangeKey,
+        pin: trimmedPin,
+        rewardGoal: state.rewardGoal,
+        prize: state.prize,
+        avatar: kidAvatars[identityIndex],
+        color: kidColors[identityIndex]
+      };
       state.kids.push(kid);
       state.selectedKidId = kid.id;
       state.assignments[kid.id] = {};
@@ -1174,11 +1266,14 @@
         const percent = Math.min(100, Math.round((stats.points / goal) * 100));
         const plan = chorePlans[kid.rangeKey];
         return `
-          <article class="kid-card ${kid.id === state.selectedKidId ? "active" : ""}">
+          <article class="kid-card ${kid.id === state.selectedKidId ? "active" : ""}" style="--kid-color: ${escapeHtml(kid.color)}">
             <span class="kid-card-top">
-              <span>
-                <span class="kid-name">${escapeHtml(kid.name)}</span>
-                <span class="muted">Age ${kid.age} · ${plan.label}</span>
+              <span class="kid-identity">
+                <span class="kid-avatar" aria-hidden="true">${escapeHtml(kid.avatar)}</span>
+                <span>
+                  <span class="kid-name">${escapeHtml(kid.name)}</span>
+                  <span class="muted">Age ${kid.age} · ${plan.label}</span>
+                </span>
               </span>
               <span class="pill">${stats.points}/${goal}</span>
             </span>
@@ -1211,10 +1306,11 @@
       const prize = getKidPrize(kid);
 
       kidBoard.classList.remove("hidden");
+      kidBoard.style.setProperty("--selected-kid-color", kid.color || "#19a7ce");
       kidBoard.innerHTML = `
         <div class="board-head">
           <div class="board-title-row">
-            <h2>${escapeHtml(kid.name)}</h2>
+            <h2><span aria-hidden="true">${escapeHtml(kid.avatar)}</span> ${escapeHtml(kid.name)}</h2>
             <span class="pill">Age ${kid.age}</span>
           </div>
           <p class="muted">${plan.note}</p>
@@ -1403,9 +1499,9 @@
         rewardGoal: 25,
         prize: "Ice cream",
         kids: [
-          { id: "riley-demo", name: "Riley", age: 6, rangeKey: "6-8", pin: "1234", rewardGoal: 15, prize: "Ice cream" },
-          { id: "jordan-demo", name: "Jordan", age: 11, rangeKey: "11-12", pin: "1234", rewardGoal: 25, prize: "Toy" },
-          { id: "casey-demo", name: "Casey", age: 16, rangeKey: "16-18", pin: "1234", rewardGoal: 40, prize: "Game time" }
+          { id: "riley-demo", name: "Riley", age: 6, rangeKey: "6-8", pin: "1234", rewardGoal: 15, prize: "Ice cream", avatar: "⭐", color: "#19a7ce" },
+          { id: "jordan-demo", name: "Jordan", age: 11, rangeKey: "11-12", pin: "1234", rewardGoal: 25, prize: "Toy", avatar: "🚀", color: "#ff8f5f" },
+          { id: "casey-demo", name: "Casey", age: 16, rangeKey: "16-18", pin: "1234", rewardGoal: 40, prize: "Game time", avatar: "🎮", color: "#7b61ff" }
         ],
         selectedKidId: "riley-demo",
         activePeriod: "daily",
@@ -1667,19 +1763,21 @@ function applyKanbanMove(kid, choreId, columnKey) {
     delete state.approvals[kid.id][choreId];
     delete state.carryovers[kid.id][choreId];
     logAction(`${kid.name} assigned ${choreId} on board.`);
-  } else if (columnKey === "review") {
-    state.assignments[kid.id][choreId] = true;
-    state.reviews[kid.id][choreId] = true;
-    delete state.approvals[kid.id][choreId];
-    delete state.carryovers[kid.id][choreId];
-    logAction(`${kid.name} submitted ${choreId} for review on board.`);
-  } else if (columnKey === "approved") {
-    state.assignments[kid.id][choreId] = true;
-    state.reviews[kid.id][choreId] = true;
-    state.approvals[kid.id][choreId] = true;
-    delete state.carryovers[kid.id][choreId];
-    logAction(`Adult approved ${choreId} for ${kid.name} on board.`);
-  }
+      } else if (columnKey === "review") {
+        state.assignments[kid.id][choreId] = true;
+        state.reviews[kid.id][choreId] = true;
+        delete state.approvals[kid.id][choreId];
+        delete state.carryovers[kid.id][choreId];
+        logAction(`${kid.name} submitted ${choreId} for review on board.`);
+        celebrateKid(kid);
+      } else if (columnKey === "approved") {
+        state.assignments[kid.id][choreId] = true;
+        state.reviews[kid.id][choreId] = true;
+        state.approvals[kid.id][choreId] = true;
+        delete state.carryovers[kid.id][choreId];
+        logAction(`Adult approved ${choreId} for ${kid.name} on board.`);
+        celebrateKid(kid, "✓");
+      }
 
   saveState();
   renderView();
@@ -1742,12 +1840,14 @@ function getDragAfterElement(container, y) {
       if (action === "submit-review" && state.assignments[kidId][choreId] && !state.approvals[kidId][choreId]) {
         state.reviews[kidId][choreId] = !state.reviews[kidId][choreId];
         logAction(`${kid.name} marked ${choreId} ${state.reviews[kidId][choreId] ? "done for review" : "not ready for review"}.`);
+        if (state.reviews[kidId][choreId]) celebrateKid(kid);
       }
 
       if (action === "approve" && state.reviews[kidId][choreId]) {
         state.approvals[kidId][choreId] = true;
         delete state.carryovers[kidId][choreId];
         logAction(`Adult approved ${choreId} for ${kid.name}.`);
+        celebrateKid(kid, "✓");
       }
 
       if (action === "redeem") {
