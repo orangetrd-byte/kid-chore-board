@@ -747,7 +747,7 @@
             <input id="kid-age" type="number" min="2" max="18" inputmode="numeric" placeholder="7">
           </div>
           <div class="field">
-            <label for="kid-pin">PIN</label>
+            <label for="kid-pin">Adult PIN</label>
             <input id="kid-pin" type="password" maxlength="4" inputmode="numeric" placeholder="1234">
           </div>
           <div class="field">
@@ -771,6 +771,7 @@
           <button class="ghost" type="button" id="audit-button">Audit Log</button>
           <button class="tertiary" type="button" id="export-button">Export</button>
           <button class="ghost" type="button" id="import-button">Import</button>
+          <button class="ghost" type="button" id="adult-lock-button">Unlock Adult</button>
         </div>
         <input class="hidden" id="import-file" type="file" accept="application/json">
 
@@ -900,6 +901,7 @@
     const exportButton = document.querySelector("#export-button");
     const importButton = document.querySelector("#import-button");
     const importFile = document.querySelector("#import-file");
+    const adultLockButton = document.querySelector("#adult-lock-button");
     const viewKidsButton = document.querySelector("#view-kids-button");
     const viewBoardButton = document.querySelector("#view-board-button");
     const maxKids = 10;
@@ -911,6 +913,7 @@
       activePeriod: "daily",
       rewardGoal: 25,
       prize: "Ice cream",
+      adultPin: "1234",
       graceHours: 24,
       assignments: {},
       reviews: {},
@@ -924,6 +927,7 @@
     };
     let state = loadState();
     let editingKidId = "";
+    let adultUnlocked = false;
 
     function loadState() {
       try {
@@ -938,6 +942,7 @@
 
     function normalizeState(nextState) {
       nextState.version = 3;
+      nextState.adultPin = nextState.adultPin || "1234";
       nextState.reviews = nextState.reviews || {};
       nextState.approvals = nextState.approvals || {};
       nextState.redemptions = nextState.redemptions || {};
@@ -1087,9 +1092,17 @@
       state.auditLog = state.auditLog.slice(0, 250);
     }
 
-    function verifyKidPin(kid) {
-      const entered = window.prompt(`Enter ${kid.name}'s 4-digit PIN`);
-      return entered === kid.pin;
+    function requireAdultUnlock() {
+      if (adultUnlocked) return true;
+      const entered = window.prompt("Enter adult PIN");
+      if (entered === state.adultPin) {
+        adultUnlocked = true;
+        setMessage("Adult controls unlocked.");
+        render();
+        return true;
+      }
+      setMessage("Adult PIN did not match.", "error");
+      return false;
     }
 
     function getAllChores(kid, period) {
@@ -1207,6 +1220,7 @@
     }
 
     function startEditKid(kidId) {
+      if (!requireAdultUnlock()) return;
       const kid = state.kids.find((item) => item.id === kidId);
       if (!kid) return;
       editingKidId = kid.id;
@@ -1220,6 +1234,7 @@
     }
 
     function deleteKid(kidId) {
+      if (!requireAdultUnlock()) return;
       const kid = state.kids.find((item) => item.id === kidId);
       if (!kid) return;
       const confirmed = window.confirm(`Delete ${kid.name} and all saved chore progress?`);
@@ -1249,6 +1264,8 @@
       prizeInput.value = state.prize;
       graceHoursInput.value = state.graceHours;
       saveKidButton.textContent = editingKidId ? "Save Changes" : "Add Kid";
+      adultLockButton.textContent = adultUnlocked ? "Lock Adult" : "Unlock Adult";
+      adultLockButton.className = adultUnlocked ? "tertiary" : "ghost";
       kidCount.textContent = `${state.kids.length}/${maxKids}`;
       renderKids();
       renderView();
@@ -1487,6 +1504,7 @@
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!requireAdultUnlock()) return;
       syncRewardSettings();
       if (editingKidId) updateKid(editingKidId, kidNameInput.value, kidAgeInput.value, kidPinInput.value);
       else addKid(kidNameInput.value, kidAgeInput.value, kidPinInput.value);
@@ -1525,6 +1543,7 @@
     });
 
     clearProgressButton.addEventListener("click", () => {
+      if (!requireAdultUnlock()) return;
       state.reviews = {};
       state.approvals = {};
       state.kids.forEach((kid) => {
@@ -1745,9 +1764,8 @@ function applyKanbanMove(kid, choreId, columnKey) {
   state.pointOverrides[kid.id] = state.pointOverrides[kid.id] || {};
   state.carryovers[kid.id] = state.carryovers[kid.id] || {};
 
-  const requiresPin = ["assigned", "review"].includes(columnKey);
-  if (requiresPin && !verifyKidPin(kid)) {
-    setMessage("PIN did not match.", "error");
+  const requiresAdult = ["available", "approved"].includes(columnKey);
+  if (requiresAdult && !requireAdultUnlock()) {
     return;
   }
 
@@ -1812,8 +1830,7 @@ function getDragAfterElement(container, y) {
       const kid = state.kids.find((item) => item.id === kidId);
       if (!kid) return;
 
-      if (["toggle-assign", "submit-review", "redeem"].includes(action) && !verifyKidPin(kid)) {
-        setMessage("PIN did not match.", "error");
+      if (["approve", "redeem", "remove-custom"].includes(action) && !requireAdultUnlock()) {
         return;
       }
 
@@ -1961,7 +1978,18 @@ function getDragAfterElement(container, y) {
 
     exportButton.addEventListener("click", exportState);
 
+    adultLockButton.addEventListener("click", () => {
+      if (adultUnlocked) {
+        adultUnlocked = false;
+        setMessage("Adult controls locked.");
+        render();
+        return;
+      }
+      requireAdultUnlock();
+    });
+
     importButton.addEventListener("click", () => {
+      if (!requireAdultUnlock()) return;
       importFile.click();
     });
 
