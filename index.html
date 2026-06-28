@@ -231,6 +231,12 @@
       text-align: left;
     }
 
+    .kid-card-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
     .kid-card.active {
       border-color: var(--primary);
       box-shadow: inset 0 0 0 2px rgba(25, 167, 206, 0.18), var(--shadow);
@@ -691,7 +697,7 @@
         </div>
 
         <div class="action-row">
-          <button class="primary" type="submit">Add Kid</button>
+          <button class="primary" type="submit" id="save-kid-button">Add Kid</button>
           <button class="secondary" type="button" id="demo-button">Load Demo Family</button>
           <button class="ghost" type="button" id="clear-progress-button">Clear Points</button>
           <button class="ghost" type="button" id="audit-button">Audit Log</button>
@@ -802,6 +808,7 @@
     const kidNameInput = document.querySelector("#kid-name");
     const kidAgeInput = document.querySelector("#kid-age");
     const kidPinInput = document.querySelector("#kid-pin");
+    const saveKidButton = document.querySelector("#save-kid-button");
     const rewardGoalInput = document.querySelector("#reward-goal");
     const prizeInput = document.querySelector("#prize-input");
     const graceHoursInput = document.querySelector("#grace-hours");
@@ -844,6 +851,7 @@
       viewMode: "kids"
     };
     let state = loadState();
+    let editingKidId = "";
 
     function loadState() {
       try {
@@ -1062,10 +1070,92 @@
       render();
     }
 
+    function updateKid(kidId, name, age, pin) {
+      const kid = state.kids.find((item) => item.id === kidId);
+      const trimmedName = name.trim();
+      const parsedAge = Number(age);
+      const trimmedPin = pin.trim();
+      const rangeKey = getRangeForAge(parsedAge);
+
+      if (!kid) return;
+
+      if (!trimmedName) {
+        setMessage("Add a kid name first.", "error");
+        return;
+      }
+
+      if (!Number.isInteger(parsedAge) || !rangeKey) {
+        setMessage("Age needs to be a whole number from 2 through 18.", "error");
+        return;
+      }
+
+      if (!/^\d{4}$/.test(trimmedPin)) {
+        setMessage("PIN needs to be 4 numbers.", "error");
+        return;
+      }
+
+      if (state.kids.some((item) => item.id !== kidId && item.name.toLowerCase() === trimmedName.toLowerCase())) {
+        setMessage(`${trimmedName} is already on the board.`, "error");
+        return;
+      }
+
+      kid.name = trimmedName;
+      kid.age = parsedAge;
+      kid.rangeKey = rangeKey;
+      kid.pin = trimmedPin;
+      editingKidId = "";
+      kidNameInput.value = "";
+      kidAgeInput.value = "";
+      kidPinInput.value = "";
+      setMessage(`${kid.name} updated.`);
+      logAction(`${kid.name}'s profile was updated.`);
+      saveState();
+      render();
+    }
+
+    function startEditKid(kidId) {
+      const kid = state.kids.find((item) => item.id === kidId);
+      if (!kid) return;
+      editingKidId = kid.id;
+      kidNameInput.value = kid.name;
+      kidAgeInput.value = kid.age;
+      kidPinInput.value = kid.pin;
+      state.selectedKidId = kid.id;
+      setMessage(`Editing ${kid.name}.`);
+      render();
+      kidNameInput.focus();
+    }
+
+    function deleteKid(kidId) {
+      const kid = state.kids.find((item) => item.id === kidId);
+      if (!kid) return;
+      const confirmed = window.confirm(`Delete ${kid.name} and all saved chore progress?`);
+      if (!confirmed) return;
+
+      state.kids = state.kids.filter((item) => item.id !== kidId);
+      delete state.assignments[kidId];
+      delete state.reviews[kidId];
+      delete state.approvals[kidId];
+      delete state.redemptions[kidId];
+      delete state.customChores[kidId];
+      delete state.pointOverrides[kidId];
+      delete state.carryovers[kidId];
+      if (state.selectedKidId === kidId) state.selectedKidId = state.kids[0]?.id || "";
+      if (editingKidId === kidId) editingKidId = "";
+      kidNameInput.value = "";
+      kidAgeInput.value = "";
+      kidPinInput.value = "";
+      setMessage(`${kid.name} deleted.`);
+      logAction(`${kid.name} was deleted from the board.`);
+      saveState();
+      render();
+    }
+
     function render() {
       rewardGoalInput.value = state.rewardGoal;
       prizeInput.value = state.prize;
       graceHoursInput.value = state.graceHours;
+      saveKidButton.textContent = editingKidId ? "Save Changes" : "Add Kid";
       kidCount.textContent = `${state.kids.length}/${maxKids}`;
       renderKids();
       renderView();
@@ -1083,7 +1173,7 @@
         const percent = Math.min(100, Math.round((stats.points / goal) * 100));
         const plan = chorePlans[kid.rangeKey];
         return `
-          <button class="kid-card ${kid.id === state.selectedKidId ? "active" : ""}" type="button" data-action="select-kid" data-kid-id="${kid.id}">
+          <article class="kid-card ${kid.id === state.selectedKidId ? "active" : ""}">
             <span class="kid-card-top">
               <span>
                 <span class="kid-name">${escapeHtml(kid.name)}</span>
@@ -1093,7 +1183,12 @@
             </span>
             <span class="progress-track" aria-hidden="true"><span class="progress-fill" style="width: ${percent}%"></span></span>
             <span class="muted">${stats.approved} approved · ${stats.review} waiting · ${escapeHtml(getKidPrize(kid))}</span>
-          </button>
+            <span class="kid-card-actions">
+              <button class="ghost" type="button" data-action="select-kid" data-kid-id="${kid.id}">Open</button>
+              <button class="ghost" type="button" data-action="edit-kid" data-kid-id="${kid.id}">Edit</button>
+              <button class="danger" type="button" data-action="delete-kid" data-kid-id="${kid.id}">Delete</button>
+            </span>
+          </article>
         `;
       }).join("");
     }
@@ -1296,10 +1391,12 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       syncRewardSettings();
-      addKid(kidNameInput.value, kidAgeInput.value, kidPinInput.value);
+      if (editingKidId) updateKid(editingKidId, kidNameInput.value, kidAgeInput.value, kidPinInput.value);
+      else addKid(kidNameInput.value, kidAgeInput.value, kidPinInput.value);
     });
 
     demoButton.addEventListener("click", () => {
+      editingKidId = "";
       state = {
         ...defaultState,
         rewardGoal: 25,
@@ -1344,6 +1441,22 @@
     });
 
     kidGrid.addEventListener("click", (event) => {
+      const editButton = event.target.closest("[data-action='edit-kid']");
+      if (editButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        startEditKid(editButton.dataset.kidId);
+        return;
+      }
+
+      const deleteButton = event.target.closest("[data-action='delete-kid']");
+      if (deleteButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteKid(deleteButton.dataset.kidId);
+        return;
+      }
+
       const button = event.target.closest("[data-action='select-kid']");
       if (!button) return;
       state.selectedKidId = button.dataset.kidId;
