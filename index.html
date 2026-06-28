@@ -715,6 +715,43 @@
       padding-top: 8px;
     }
 
+    .calendar-chore-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .calendar-chore-row strong {
+      min-width: 0;
+    }
+
+    .calendar-done-button {
+      width: max-content;
+      min-height: 34px;
+      border: 1px solid rgba(25, 167, 206, 0.28);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: #eafaff;
+      color: #07647e;
+      font-size: 0.82rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .calendar-done-button.waiting {
+      border-color: rgba(245, 166, 35, 0.32);
+      background: #fff3ce;
+      color: #765400;
+    }
+
+    .calendar-done-button:disabled {
+      border-color: transparent;
+      background: #edf9ee;
+      color: var(--done);
+      opacity: 1;
+    }
+
     .calendar-status {
       width: max-content;
       border-radius: 999px;
@@ -1540,9 +1577,14 @@
           ${chores.length ? chores.map((chore) => {
             const status = approvals[chore.id] ? "Approved" : reviews[chore.id] ? "Review" : "Assigned";
             const statusClass = approvals[chore.id] ? "approved" : reviews[chore.id] ? "review" : "";
+            const buttonLabel = approvals[chore.id] ? "Approved" : reviews[chore.id] ? "Undo" : "Done";
+            const buttonClass = reviews[chore.id] ? " waiting" : "";
             return `
               <div class="calendar-chore">
-                <strong>${escapeHtml(chore.name)}</strong>
+                <div class="calendar-chore-row">
+                  <strong>${escapeHtml(chore.name)}</strong>
+                  <button class="calendar-done-button${buttonClass}" type="button" data-action="locked-submit-review" data-kid-id="${kid.id}" data-chore-id="${chore.id}" ${approvals[chore.id] ? "disabled" : ""}>${buttonLabel}</button>
+                </div>
                 <span class="calendar-status ${statusClass}">${status}</span>
               </div>
             `;
@@ -1773,6 +1815,30 @@
     parentSelect.addEventListener("change", () => {
       setLoginMessage();
       updateParentPinHint();
+    });
+
+    lockedBoard.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action='locked-submit-review']");
+      if (!button) return;
+
+      const kidId = button.dataset.kidId;
+      const choreId = button.dataset.choreId;
+      const kid = state.kids.find((item) => item.id === kidId);
+      if (!kid) return;
+
+      state.assignments[kidId] = state.assignments[kidId] || {};
+      state.reviews[kidId] = state.reviews[kidId] || {};
+      state.approvals[kidId] = state.approvals[kidId] || {};
+
+      if (!state.assignments[kidId][choreId] || state.approvals[kidId][choreId]) return;
+
+      state.reviews[kidId][choreId] = !state.reviews[kidId][choreId];
+      logAction(`${kid.name} marked ${choreId} ${state.reviews[kidId][choreId] ? "done for review" : "not ready for review"} from locked screen.`);
+      setLoginMessage(`${kid.name} ${state.reviews[kidId][choreId] ? "sent a chore for review." : "moved a chore back to assigned."}`);
+      if (state.reviews[kidId][choreId]) celebrateKid(kid);
+      saveState();
+      renderLockedCalendar();
+      renderLockedLeaderboard();
     });
 
     demoButton.addEventListener("click", () => {
