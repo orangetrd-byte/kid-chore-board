@@ -711,11 +711,11 @@
 
       <section class="dashboard" aria-label="Kids dashboard">
         <div class="section-header">
-          <div class="inline-controls" style="gap:8px;">
-            <button class="ghost" type="button" id="view-kids-button">Kids</button>
-            <button class="ghost" type="button" id="view-board-button">Board</button>
+          <div class="view-toggle" role="tablist" aria-label="View">
+            <button class="tab active" type="button" id="view-kids-button" role="tab" aria-selected="true">Kids</button>
+            <button class="tab" type="button" id="view-board-button" role="tab" aria-selected="false">Board</button>
           </div>
-          <h2>Kids</h2>
+          <h2 id="view-title">Kids</h2>
           <span class="pill" id="kid-count">0/10</span>
         </div>
         <div class="kid-grid" id="kid-grid"></div>
@@ -814,11 +814,12 @@
     const graceHoursInput = document.querySelector("#grace-hours");
     const message = document.querySelector("#message");
     const kidCount = document.querySelector("#kid-count");
-    const kidGrid = document.querySelector("#kid-grid");
     const kidBoard = document.querySelector("#kid-board");
-    const kidKanban = document.querySelector("#kid-kanban");
     const leaderboard = document.querySelector("#leaderboard");
+    const kidKanban = document.querySelector("#kid-kanban");
     const emptyState = document.querySelector("#empty-state");
+    const viewTitle = document.querySelector("#view-title");
+    const kidGrid = document.querySelector("#kid-grid");
     const demoButton = document.querySelector("#demo-button");
     const clearProgressButton = document.querySelector("#clear-progress-button");
     const auditButton = document.querySelector("#audit-button");
@@ -1464,22 +1465,30 @@
       render();
     });
 
+    function updateViewToggle() {
+      const isKids = state.viewMode === 'kids';
+      viewTitle.textContent = isKids ? 'Kids' : 'Board';
+      viewKidsButton.classList.toggle('active', isKids);
+      viewBoardButton.classList.toggle('active', !isKids);
+      viewKidsButton.setAttribute('aria-selected', isKids ? 'true' : 'false');
+      viewBoardButton.setAttribute('aria-selected', !isKids ? 'true' : 'false');
+    }
+
     viewKidsButton.addEventListener("click", () => {
       state.viewMode = "kids";
       saveState();
-      render();
+      renderView();
     });
 
     viewBoardButton.addEventListener("click", () => {
       state.viewMode = "board";
       saveState();
-      render();
+      renderView();
     });
 
 function renderView() {
   const kid = getSelectedKid();
-  viewKidsButton.classList.toggle("active", state.viewMode !== "board");
-  viewBoardButton.classList.toggle("active", state.viewMode === "board");
+  updateViewToggle();
 
   if (!kid) {
     kidBoard.classList.add("hidden");
