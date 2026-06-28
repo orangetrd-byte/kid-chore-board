@@ -658,6 +658,83 @@
       padding: 18px;
     }
 
+    .locked-board {
+      display: grid;
+      gap: 14px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .calendar-card {
+      display: grid;
+      gap: 10px;
+      border: 1px solid rgba(223, 232, 236, 0.92);
+      border-left: 8px solid var(--kid-color, var(--primary));
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .calendar-periods {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .calendar-period {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px;
+    }
+
+    .calendar-period h3 {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 1rem;
+    }
+
+    .calendar-chore {
+      display: grid;
+      gap: 4px;
+      border-top: 1px solid #edf2f4;
+      padding-top: 8px;
+    }
+
+    .calendar-status {
+      width: max-content;
+      border-radius: 999px;
+      padding: 5px 8px;
+      background: #eef2f6;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .calendar-status.review {
+      background: #fff3ce;
+      color: #765400;
+    }
+
+    .calendar-status.approved {
+      background: #edf9ee;
+      color: var(--done);
+    }
+
     .hidden {
       display: none;
     }
@@ -720,6 +797,10 @@
         align-items: start;
       }
 
+      .calendar-periods {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
       .chore-item {
         grid-template-columns: 1fr 260px;
         align-items: center;
@@ -763,6 +844,14 @@
       </form>
       <p class="muted" id="parent-pin-hint"></p>
       <p class="message" id="login-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="locked-board" id="locked-board" aria-label="Assigned chores calendar">
+      <div class="section-header">
+        <h2>Assigned Chores</h2>
+        <span class="pill">Locked view</span>
+      </div>
+      <div class="calendar-grid" id="calendar-grid"></div>
     </section>
 
     <section class="layout hidden" id="app-layout" aria-label="Family chore manager">
@@ -910,6 +999,8 @@
     const parentPinInput = document.querySelector("#parent-pin");
     const parentPinHint = document.querySelector("#parent-pin-hint");
     const loginMessage = document.querySelector("#login-message");
+    const lockedBoard = document.querySelector("#locked-board");
+    const calendarGrid = document.querySelector("#calendar-grid");
     const kidNameInput = document.querySelector("#kid-name");
     const kidAgeInput = document.querySelector("#kid-age");
     const saveKidButton = document.querySelector("#save-kid-button");
@@ -1324,10 +1415,12 @@
       adultLockButton.className = "ghost";
       loginPanel.classList.toggle("hidden", adultUnlocked);
       appLayout.classList.toggle("hidden", !adultUnlocked);
+      lockedBoard.classList.toggle("hidden", adultUnlocked);
       updateParentPinHint();
       kidCount.textContent = `${state.kids.length}/${maxKids}`;
       renderKids();
       renderView();
+      renderLockedCalendar();
     }
 
     function renderKids() {
@@ -1363,6 +1456,69 @@
           </article>
         `;
       }).join("");
+    }
+
+    function renderLockedCalendar() {
+      if (!calendarGrid) return;
+      if (!state.kids.length) {
+        calendarGrid.innerHTML = `
+          <section class="empty-state">
+            <h2>No kids yet.</h2>
+            <p>Parent login is needed to add kids and assign chores.</p>
+          </section>
+        `;
+        return;
+      }
+
+      const cards = state.kids.map((kid) => getCalendarCardMarkup(kid)).join("");
+      calendarGrid.innerHTML = cards;
+    }
+
+    function getCalendarCardMarkup(kid) {
+      const stats = getStats(kid);
+      return `
+        <article class="calendar-card" style="--kid-color: ${escapeHtml(kid.color)}">
+          <div class="calendar-head">
+            <span class="kid-identity">
+              <span class="kid-avatar" aria-hidden="true">${escapeHtml(kid.avatar)}</span>
+              <span>
+                <span class="kid-name">${escapeHtml(kid.name)}</span>
+                <span class="muted">Age ${kid.age}</span>
+              </span>
+            </span>
+            <span class="pill">${stats.points}/${getKidGoal(kid)}</span>
+          </div>
+          <div class="calendar-periods">
+            ${sections.map((section) => getCalendarPeriodMarkup(kid, section)).join("")}
+          </div>
+        </article>
+      `;
+    }
+
+    function getCalendarPeriodMarkup(kid, section) {
+      const assignments = getKidAssignments(kid);
+      const reviews = getKidReviews(kid);
+      const approvals = getKidApprovals(kid);
+      const chores = getAllChores(kid, section.key).filter((chore) => assignments[chore.id]);
+
+      return `
+        <section class="calendar-period">
+          <h3>
+            <span>${section.icon} ${section.title}</span>
+            <span class="muted">${chores.length}</span>
+          </h3>
+          ${chores.length ? chores.map((chore) => {
+            const status = approvals[chore.id] ? "Approved" : reviews[chore.id] ? "Review" : "Assigned";
+            const statusClass = approvals[chore.id] ? "approved" : reviews[chore.id] ? "review" : "";
+            return `
+              <div class="calendar-chore">
+                <strong>${escapeHtml(chore.name)}</strong>
+                <span class="calendar-status ${statusClass}">${status}</span>
+              </div>
+            `;
+          }).join("") : "<p class=\"muted\">No assigned chores.</p>"}
+        </section>
+      `;
     }
 
     function renderBoard() {
