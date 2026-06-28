@@ -16,7 +16,7 @@ Open the app in a browser that supports PWAs, then choose the browser's install 
 
 ## Family Sync
 
-The app can sync through Firebase Firestore. Create a Firebase web app, enable Firestore, then paste the Firebase web config JSON into Family Sync. Use the same family code on every device. The app stores one document at `families/{family-code}` and keeps local storage as the offline fallback.
+The app syncs through Firebase Firestore. Use the same family code on every device. The app stores one document at `families/{family-code}` and keeps local storage as the offline fallback.
 
 ## File Structure
 
