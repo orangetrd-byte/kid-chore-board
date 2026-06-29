@@ -1002,7 +1002,7 @@
     <section class="hero" aria-labelledby="app-title">
       <div class="hero-badges">
         <div class="badge">Up to 10 kids</div>
-        <div class="badge" id="app-version">MGP Version 1.0.26</div>
+        <div class="badge" id="app-version">MGP Version 1.0.27</div>
       </div>
       <h1 id="app-title">Kid Chore Board</h1>
       <p class="intro">A mobile-first chore board for assigning age-right jobs, tracking completion, and working toward a family prize.</p>
@@ -1393,7 +1393,7 @@
       const goal = Number(rewardGoalInput.value);
       const grace = Number(graceHoursInput.value);
       state.rewardGoal = Number.isInteger(goal) && goal > 0 ? goal : 25;
-      state.prize = prizeInput.value.trim() || "a prize";
+      state.prize = prizeInput.value.trim();
       state.graceHours = Number.isInteger(grace) && grace >= 0 ? grace : 24;
 
       const selectedKid = getSelectedKid();
@@ -2559,7 +2559,7 @@ function getDragAfterElement(container, y) {
       if (prizeField) {
         const kid = state.kids.find((item) => item.id === prizeField.dataset.kidId);
         if (!kid) return;
-        kid.prize = prizeField.value.trim() || state.prize || "a prize";
+        kid.prize = prizeField.value.trim();
         state.prize = kid.prize;
         prizeInput.value = kid.prize;
         refreshScoreViews();
@@ -2585,6 +2585,14 @@ function getDragAfterElement(container, y) {
     });
 
     prizeInput.addEventListener("input", () => {
+      state.prize = prizeInput.value.trim();
+      const selectedKid = getSelectedKid();
+      if (selectedKid) selectedKid.prize = state.prize;
+      refreshScoreViews();
+    });
+
+    prizeInput.addEventListener("change", () => {
+      if (!prizeInput.value.trim()) prizeInput.value = "a prize";
       syncRewardSettings();
       refreshScoreViews();
     });
